@@ -1,5 +1,4 @@
-from flask import Flask, request, redirect, url_for, render_template
-import requests
+from flask import Flask, request, redirect, url_for, render_template, abort
 
 from sqlalchemy import create_engine
 from sqlalchemy.orm import scoped_session, sessionmaker
@@ -54,6 +53,10 @@ def paste_form():
 @app.route('/submit', methods=["POST"])
 def receive_paste():
     paste = Paste(request.form['paste'], request.form['lang'])
+    from pygments.lexers import get_all_lexers
+    languages = set(map(lambda l:l[1][0], list(get_all_lexers())))
+    if paste.lang not in languages or len(paste.src) > 10**5:
+        abort(403)
     db_session.add(paste)
     db_session.commit()
     return redirect(url_for('show_paste', pasteid = paste.id))
@@ -70,6 +73,8 @@ def do_highlight(paste):
 @app.route('/<pasteid>')
 def show_paste(pasteid):
     paste    = Paste.query.filter(Paste.id == pasteid).first()
+    if paste == None:
+        abort(404)
     rendered, css = do_highlight(paste)
     return render_template('show.html', paste=paste, rendered=rendered, css=css)
 
