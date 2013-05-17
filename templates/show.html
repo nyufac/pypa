@@ -1,0 +1,9 @@
+{% extends "base.html" %}
+{% block title %}Paste #{{paste.id}}{% endblock %}
+{% block pagetitle %}Paste #{{paste.id}}{% endblock %}
+{% block content %}
+<style>{{css}}</style>
+{% autoescape False %}
+{{rendered}}
+{% endautoescape %}
+{% endblock %}

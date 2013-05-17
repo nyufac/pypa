@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+{% block title %}New paste{% endblock %}
+{% block pagetitle %}Type new paste{% endblock %}
+{% block content %}
+<form method="POST" action="{{ url_for('receive_paste')}}">
+    <p><select name="lang">
+        {% for lang in languages %}
+        <option value="{{lang[1][0]}}">{{lang[0]}} ({{ ', '.join(lang[2]) }})</option>
+        {% endfor %}
+    </select>
+    <p><textarea name="paste"></textarea>
+    <p><input type="submit" value="Paste!">
+</form>
+{% endblock %}

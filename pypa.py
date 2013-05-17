@@ -1,14 +1,16 @@
-from flask import Flask, request
-from json import loads as loadjson, dumps as dumpjson
+from flask import Flask, request, redirect, url_for, render_template
+import requests
 
 from sqlalchemy import create_engine
 from sqlalchemy.orm import scoped_session, sessionmaker
+from sqlalchemy import Column, Integer, String, Text
 from sqlalchemy.ext.declarative import declarative_base
 
-engine = create_engine('sqlite:pypa.db', convert_unicode=True)
+engine = create_engine('sqlite:///pypa.db', convert_unicode=True)
 db_session = scoped_session(sessionmaker(autocommit=False,
                                          autoflush=False,
                                          bind=engine))
+
 orm = declarative_base()
 orm.query = db_session.query_property()
 app = Flask(__name__)
@@ -21,44 +23,55 @@ class Paste(orm):
     src   = Column(Text(),     unique=True)
 
     def __init__(self, source, lang=None):
-        self.lang  = lang
-        self.src = source
+        self.lang = lang
+        self.src  = source
+        self.id   = self.__uid()
+
+    def __uid(self):
+        gl   = ['i', 'ya', 'yu', 'o', 'a', 'eee', 'iii', 'u']
+        sogl = ['m', 'n', 'l', 'r', 'b', 'zh', 'h', 'k']
+
+        from random import shuffle, sample
+
+        uid = sample(gl,5) + sample(sogl,5)
+        shuffle(uid)
+        return ''.join(uid)
 
     def __repr__(self):
-        return '<User %r>' % (self.name)
-
+        return '<Paste #%s (%r)>' % (self.id, self.lang)
 
 @app.teardown_request
 def shutdown_session(exception=None):
     db_session.remove()
 
 @app.route('/')
-def latest_pastes():
-    return 'Latest paste list'
-
-@app.route('/new')
 def paste_form():
-    return 'Paste form'
+    from pygments.lexers import get_all_lexers
+    languages = list(get_all_lexers())
+    languages.sort()
+    return render_template('new.html', languages=languages)
 
-@app.route('/submit')
+@app.route('/submit', methods=["POST"])
 def receive_paste():
-    paste = request.form('paste')
-    lang  = request.form('lang')
-    return 'Paste receiving'
+    paste = Paste(request.form['paste'], request.form['lang'])
+    db_session.add(paste)
+    db_session.commit()
+    return redirect(url_for('show_paste', pasteid = paste.id))
 
-@app.route('/highlight')
-def do_highlight():
-    source = request.form('source')
-
+def do_highlight(paste):
     from pygments import highlight
-    from pygments.lexers import PythonLexer
+    from pygments.lexers import get_lexer_by_name 
     from pygments.formatters import HtmlFormatter
 
-    return highlight(source, PythonLexer(), HtmlFormatter())
+    lexer = get_lexer_by_name(paste.lang, stripall=True)
 
-@app.route('/view/<pasteid>')
+    return highlight(paste.src, lexer, HtmlFormatter()), HtmlFormatter().get_style_defs('.highlight')
+
+@app.route('/<pasteid>')
 def show_paste(pasteid):
-    return 'Showing paste'
+    paste    = Paste.query.filter(Paste.id == pasteid).first()
+    rendered, css = do_highlight(paste)
+    return render_template('show.html', paste=paste, rendered=rendered, css=css)
 
 if __name__ == '__main__':
     orm.metadata.create_all(bind=engine)
